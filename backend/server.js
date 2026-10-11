@@ -691,15 +691,12 @@ app.post('/routes', async (req, res) => {
             console.warn('OSRM route lookup failed, using fallback routes:', error.message);
         }
         if (routes.length === 0) {
-            routes = fallbackRoutes(startPoint, destinationPoint);
-        } else if (routes.length < 3 && startPoint && destinationPoint) {
-            const estimatedAlternatives = fallbackRoutes(startPoint, destinationPoint, {
-                startId: routes.length + 1,
-                namePrefix: 'Estimated alternative',
-                source: 'estimated alternative route',
-            });
-            routes = routes.concat(estimatedAlternatives.slice(0, 3 - routes.length));
-        }
+               return res.status(502).json({
+               error: 'Unable to retrieve real road routes. Please try again later.',
+               routes: [],
+               routeSource: 'OSRM'
+        });
+     }
 
         const scoredRoutes = await Promise.all(routes.map(route => scoreRoute(route, req.body, weather, regionRisk)));
         const comparedRoutes = compareRoutesWithinSearch(scoredRoutes);
@@ -730,6 +727,14 @@ app.post('/routes', async (req, res) => {
         console.error(error);
         res.status(500).json({ error: 'Failed to process routes' });
     }
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        service: 'RoadGuardAI backend'
+    });
 });
 
 app.listen(PORT, () => {
